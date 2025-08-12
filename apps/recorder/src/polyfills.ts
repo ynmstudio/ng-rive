@@ -43,9 +43,9 @@
  */
 
 /***************************************************************************************************
- * Zone JS is required by default for Angular itself.
+ * Zone JS is no longer required with Angular 20.
  */
-import 'zone.js'; // Included with Angular CLI.
+// import 'zone.js'; // Included with Angular CLI.
 
 /***************************************************************************************************
  * APPLICATION IMPORTS

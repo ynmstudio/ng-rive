@@ -1,4 +1,4 @@
-import { Directive, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output } from '@angular/core';
+import { Directive, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { Observable, BehaviorSubject, from } from 'rxjs';
 import { distinctUntilChanged, filter, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { RiveService } from './service';
@@ -36,30 +36,20 @@ const onVisible = (element: HTMLElement) => new Promise<boolean>((res, rej) => {
 });
 
 
-// Force event to run inside zones
-export function enterZone(zone: NgZone) {
-  return <T>(source: Observable<T>) =>
-    new Observable<T>(observer =>
-      source.subscribe({
-        next: (x) => zone.run(() => observer.next(x)),
-        error: (err) => observer.error(err),
-        complete: () => observer.complete()
-    })
-   );
-}
-
 @Directive({
     selector: 'canvas[riv]',
     exportAs: 'rivCanvas',
     standalone: true
 })
 export class RiveCanvas implements OnInit, OnDestroy {
+  private service = inject(RiveService);
+  private element = inject<ElementRef<HTMLCanvasElement>>(ElementRef);
   private url = new BehaviorSubject<RiveOrigin>(null);
   private arboardName = new BehaviorSubject<string | null>(null);
   private _ctx?: CanvasRenderingContext2D | null;
   private loaded: Observable<boolean>;
   private boxes: Record<string, AABB> = {};
-  public canvas: HTMLCanvasElement;
+  public canvas: HTMLCanvasElement = this.element.nativeElement;
   public rive?: Rive;
   public file?: RiveFile;
   public artboard?: Artboard;
@@ -67,7 +57,7 @@ export class RiveCanvas implements OnInit, OnDestroy {
   // Keep track of current state machine for event listeners
   public stateMachines: Record<string, StateMachineInstance> = {};
 
-  public whenVisible: Promise<boolean>;
+  public whenVisible: Promise<boolean> = onVisible(this.canvas);
 
   @Input() set riv(url: RiveOrigin) {
     this.url.next(url);
@@ -101,6 +91,23 @@ export class RiveCanvas implements OnInit, OnDestroy {
   }
 
   @Output() artboardChange = new EventEmitter<Artboard>();
+
+  constructor() {
+    this.loaded = this.url.pipe(
+      filter(exist),
+      distinctUntilChanged(),
+      filter(() => typeof window !== 'undefined' && !!this.ctx),
+      switchMap(async (url) => {
+        this.file = await this.service.load(url);
+        this.rive = this.service.rive;
+        if (!this.rive) throw new Error('Service could not load rive');
+        // TODO: set offscreen renderer to true for webgl
+        this.renderer = this.rive.makeRenderer(this.canvas) as CanvasRenderer;
+      }),
+      switchMap(_ => this.setArtboard()),
+      shareReplay({ bufferSize: 1, refCount: true })
+    );
+  }
 
 
   @HostListener('touchmove', ['$event'])
