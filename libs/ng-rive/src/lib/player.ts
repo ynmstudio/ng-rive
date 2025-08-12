@@ -1,6 +1,7 @@
-import { Directive, EventEmitter, Input, NgZone, OnDestroy, Output } from "@angular/core";
-import { BehaviorSubject, merge, of, Subscription } from "rxjs";
+import { Directive, EventEmitter, Input, OnDestroy, Output, inject, signal } from "@angular/core";
+import { merge, of, Subscription } from "rxjs";
 import { distinctUntilChanged, filter, map, switchMap, tap } from "rxjs/operators";
+import { toObservable } from '@angular/core/rxjs-interop';
 import { RiveCanvas } from './canvas';
 import { RiveService } from "./service";
 import { LinearAnimationInstance, LinearAnimation } from "@rive-app/canvas-advanced";
@@ -54,14 +55,16 @@ function getEnd(animation: LinearAnimationInstance) {
     standalone: true
 })
 export class RivePlayer implements OnDestroy {
+  private canvas = inject(RiveCanvas);
+  private service = inject(RiveService);
   private sub?: Subscription;
   private animation?: LinearAnimation;
   private instance?: LinearAnimationInstance;
 
   startTime?: number;
   endTime?: number;
-  distance = new BehaviorSubject<number | null>(null);
-  state = new BehaviorSubject<RivePlayerState>(getRivePlayerState());
+  distance = signal<number | null>(null);
+  state = signal<RivePlayerState>(getRivePlayerState());
 
   /**
    * Name of the rive animation in the current Artboard
@@ -70,9 +73,7 @@ export class RivePlayer implements OnDestroy {
   @Input()
   set name(name: string | undefined | null) {
     if (typeof name !== 'string') return;
-    this.zone.runOutsideAngular(() => {
-      this.register(name);
-    });
+    this.register(name);
   }
 
   /**
@@ -83,19 +84,17 @@ export class RivePlayer implements OnDestroy {
   set index(value: number | string | undefined | null) {
     const index = typeof value === 'string' ? parseInt(value) : value;
     if (typeof index !== 'number') return;
-    this.zone.runOutsideAngular(() => {
-      this.register(index);
-    });
+    this.register(index);
   }
 
   /** The mix of this animation in the current arboard */
   @Input()
   set mix(value: number | string | undefined | null) {
-    const mix = typeof value === 'string' ? parseFloat(value) : value; 
+    const mix = typeof value === 'string' ? parseFloat(value) : value;
     if (mix && mix >= 0 && mix <= 1) this.update({ mix });
   }
   get mix() {
-    return this.state.getValue().mix;
+    return this.state().mix;
   }
 
   /** Multiplicator of the speed for the animation */
@@ -105,7 +104,7 @@ export class RivePlayer implements OnDestroy {
     if (typeof speed === 'number') this.update({ speed });
   }
   get speed() {
-    return this.state.getValue().speed;
+    return this.state().speed;
   }
 
   @Input() set play(playing: boolean | '' | undefined | null) {
@@ -116,14 +115,14 @@ export class RivePlayer implements OnDestroy {
     }
   }
   get play() {
-    return this.state.getValue().playing;
+    return this.state().playing;
   }
 
   
   @Input()
   set time(value: number | string | undefined | null) {
     const time = typeof value === 'string' ? parseFloat(value) : value;
-    if (typeof time === 'number') this.distance.next(time);
+    if (typeof time === 'number') this.distance.set(time);
   }
 
   /**
@@ -139,7 +138,7 @@ export class RivePlayer implements OnDestroy {
     }
   }
   get autoreset() {
-    return this.state.getValue().autoreset;
+    return this.state().autoreset;
   }
 
   /**
@@ -151,7 +150,7 @@ export class RivePlayer implements OnDestroy {
     if (mode) this.update({ mode });
   }
   get mode() {
-    return this.state.getValue().mode;
+    return this.state().mode;
   }
 
   // eslint-disable-next-line @angular-eslint/no-output-native
@@ -162,11 +161,7 @@ export class RivePlayer implements OnDestroy {
   /** @deprecated will be removed */
   @Output() speedChange = new EventEmitter<number>();
 
-  constructor(
-    private zone: NgZone,
-    private canvas: RiveCanvas,
-    private service: RiveService,
-  ) {}
+  constructor() {}
 
   
   ngOnDestroy() {
@@ -175,8 +170,7 @@ export class RivePlayer implements OnDestroy {
   }
 
   private update(state: Partial<RivePlayerState>) {
-    const next = getRivePlayerState({...this.state.getValue(), ...state })
-    this.state.next(next);
+    this.state.update(s => ({...s, ...state }));
   }
 
   private initAnimation(name: string | number) {
@@ -197,7 +191,7 @@ export class RivePlayer implements OnDestroy {
 
   private getFrame(state: RivePlayerState) {
     if (state.playing && this.service.frame) {
-      return this.service.frame.pipe(map((time) => [state, time] as const));
+      return toObservable(this.service.frame).pipe(map((time) => [state, time] as const));
     } else {
       return of(null)
     }
@@ -208,19 +202,19 @@ export class RivePlayer implements OnDestroy {
     this.instance?.delete();  // Remove old instance if any
 
     // Update if time have changed from the input
-    const onTimeChange = this.distance.pipe(
+    const onTimeChange = toObservable(this.distance).pipe(
       filter(exist),
       distinctUntilChanged(),
       map(time => time - this.instance!.time),
     );
 
     // Update on frame change if playing
-    const onFrameChange = this.state.pipe(
+    const onFrameChange = toObservable(this.state).pipe(
       switchMap((state) => this.getFrame(state)),
       filter(exist),
       map(([state, time]) => this.moveFrame(state, time)),
       tap((delta) => {
-        this.zone.run(() => this.timeChange.emit(this.instance!.time + delta))
+        this.timeChange.emit(this.instance!.time + delta)
       })
     );
 
@@ -252,10 +246,10 @@ export class RivePlayer implements OnDestroy {
       } else if (mode === 'ping-pong') {
         delta = -delta;
         this.update({ speed: -speed });
-        this.zone.run(() => this.speedChange.emit(-speed));
+        this.speedChange.emit(-speed);
       } else if (mode === 'one-shot') {
         this.update({ playing: false });
-        this.zone.run(() => this.playChange.emit(false));
+        this.playChange.emit(false);
         delta = start - currentTime;
       }
     }
@@ -277,10 +271,10 @@ export class RivePlayer implements OnDestroy {
       } else if (mode === 'ping-pong') {
         delta = -delta;
         this.update({ speed: -speed });
-        this.zone.run(() => this.speedChange.emit(-speed));
+        this.speedChange.emit(-speed);
       } else if (mode === 'one-shot') {
         this.update({ playing: false });
-        this.zone.run(() => this.playChange.emit(false));
+        this.playChange.emit(false);
         delta = end - currentTime;
       }
     }
@@ -292,7 +286,7 @@ export class RivePlayer implements OnDestroy {
     // We need to use requestAnimationFrame when delta is changed by the time
     this.service.rive?.requestAnimationFrame(() => {
       if (!this.instance) throw new Error('Could not load animation instance before running it');
-      this.canvas.draw(this.instance, delta, this.state.getValue().mix);
+      this.canvas.draw(this.instance, delta, this.state().mix);
     });
   }
 

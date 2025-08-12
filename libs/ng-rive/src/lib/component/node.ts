@@ -1,5 +1,4 @@
-import { Directive, Input, NgZone } from '@angular/core';
-import { RiveCanvas } from '../canvas';
+import { Directive, Input } from '@angular/core';
 import { RiveTransformComponent } from './transform-component';
 import { Node } from '@rive-app/canvas-advanced';
 
@@ -23,10 +22,6 @@ export class RiveNode extends RiveTransformComponent<Node> {
   }
   get y() {
     return this.component?.y;
-  }
-
-  constructor(zone: NgZone, canvas: RiveCanvas) {
-    super(zone, canvas);
   }
 
   getComponent(name: string) {

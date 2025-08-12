@@ -1,6 +1,7 @@
-import { Directive, EventEmitter, Input, NgZone, OnDestroy, Output } from "@angular/core";
-import { BehaviorSubject, of, Subscription } from "rxjs";
+import { Directive, EventEmitter, Input, OnDestroy, Output, inject, signal } from "@angular/core";
+import { of, Subscription } from "rxjs";
 import { filter, map, switchMap } from "rxjs/operators";
+import { toObservable } from '@angular/core/rxjs-interop';
 import { RiveCanvas } from './canvas';
 import { RiveService } from "./service";
 import type { Artboard, LinearAnimationInstance, LinearAnimation } from "@rive-app/canvas-advanced";
@@ -47,10 +48,11 @@ function assertAnimation(animation: LinearAnimation, artboard: Artboard, name: s
     standalone: true
 })
 export class RiveLinearAnimation implements OnDestroy {
+  private canvas = inject(RiveCanvas);
+  private service = inject(RiveService);
   private sub?: Subscription;
   private instance?: LinearAnimationInstance;
-  distance = new BehaviorSubject<number | null>(null);
-  state = new BehaviorSubject<RiveAnimationState>(getRiveAnimationState());
+  state = signal<RiveAnimationState>(getRiveAnimationState());
 
   /**
    * Name of the rive animation in the current Artboard
@@ -59,9 +61,7 @@ export class RiveLinearAnimation implements OnDestroy {
   @Input()
   set name(name: string | undefined | null) {
     if (typeof name !== 'string') return;
-    this.zone.runOutsideAngular(() => {
-      this.register(name);
-    });
+    this.register(name);
   }
 
   /**
@@ -72,19 +72,17 @@ export class RiveLinearAnimation implements OnDestroy {
   set index(value: number | string | undefined | null) {
     const index = typeof value === 'string' ? parseInt(value) : value;
     if (typeof index !== 'number') return;
-    this.zone.runOutsideAngular(() => {
-      this.register(index);
-    });
+    this.register(index);
   }
 
   /** The mix of this animation in the current arboard */
   @Input()
   set mix(value: number | string | undefined | null) {
-    const mix = typeof value === 'string' ? parseFloat(value) : value; 
+    const mix = typeof value === 'string' ? parseFloat(value) : value;
     if (mix && mix >= 0 && mix <= 1) this.update({ mix });
   }
   get mix() {
-    return this.state.getValue().mix;
+    return this.state().mix;
   }
 
   /** Multiplicator for the speed of the animation */
@@ -94,7 +92,7 @@ export class RiveLinearAnimation implements OnDestroy {
     if (typeof speed === 'number') this.update({ speed });
   }
   get speed() {
-    return this.state.getValue().speed;
+    return this.state().speed;
   }
 
   /** If true, this animation is playing */
@@ -106,17 +104,13 @@ export class RiveLinearAnimation implements OnDestroy {
     }
   }
   get play() {
-    return this.state.getValue().playing;
+    return this.state().playing;
   }
   
   /** Emit when the LinearAnimation has been instantiated */
   @Output() load = new EventEmitter<LinearAnimationInstance>();
 
-  constructor(
-    private zone: NgZone,
-    private canvas: RiveCanvas,
-    private service: RiveService,
-  ) {}
+  constructor() {}
   
   ngOnDestroy() {
     this.sub?.unsubscribe();
@@ -125,13 +119,12 @@ export class RiveLinearAnimation implements OnDestroy {
   }
 
   private update(state: Partial<RiveAnimationState>) {
-    const next = getRiveAnimationState({...this.state.getValue(), ...state })
-    this.state.next(next);
+    this.state.update(s => ({...s, ...state }));
   }
 
   private getFrame(state: RiveAnimationState) {
     if (state.playing && this.service.frame) {
-      return this.service.frame.pipe(map((time) => [state, time] as const));
+      return toObservable(this.service.frame).pipe(map((time) => [state, time] as const));
     } else {
       return of(null)
     }
@@ -155,7 +148,7 @@ export class RiveLinearAnimation implements OnDestroy {
     this.sub?.unsubscribe(); 
 
     // Update on frame change if playing
-    const onFrameChange = this.state.pipe(
+    const onFrameChange = toObservable(this.state).pipe(
       switchMap((state) => this.getFrame(state)),
       filter(exist),
       map(([state, time]) => (time / 1000) * state.speed),
@@ -170,7 +163,7 @@ export class RiveLinearAnimation implements OnDestroy {
 
   private applyChange(delta: number) {
     if (!this.instance) throw new Error('Could not load animation instance before running it');
-    this.canvas.draw(this.instance, delta, this.state.getValue().mix);
+    this.canvas.draw(this.instance, delta, this.state().mix);
   }
 
 }

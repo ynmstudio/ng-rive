@@ -1,7 +1,8 @@
 import RiveBuilder from '@rive-app/canvas-advanced';
 import { RiveCanvas as Rive } from '@rive-app/canvas-advanced';
-import { Inject, Injectable, Optional } from '@angular/core';
+import { Injectable, inject, Optional, Signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { animationFrame } from './frame';
 import { share } from 'rxjs/operators';
 import { RIVE_FOLDER, RIVE_VERSION, RIVE_WASM } from './tokens';
@@ -9,27 +10,22 @@ import { firstValueFrom, Observable } from 'rxjs';
 
 @Injectable()
 export class RiveService {
-  private wasmPath: string;
-  private folder: string;
-  public rive?: Rive;
-  public frame?: Observable<number>;
+  private http = inject(HttpClient);
+  private folder = inject(RIVE_FOLDER, { optional: true }) ?? 'assets/rive';
+  private version = inject(RIVE_VERSION, { optional: true }) ?? '2.31.1';
+  private wasmPath = inject(RIVE_WASM, { optional: true }) ??
+    `https://unpkg.com/@rive-app/canvas-advanced@${this.version}/rive.wasm`;
 
-  constructor(
-    private http: HttpClient,
-    @Optional() @Inject(RIVE_FOLDER) folder?: string,
-    @Optional() @Inject(RIVE_WASM) wasmPath?: string,
-    @Optional() @Inject(RIVE_VERSION) version?: string,
-  ) {
-    const riveVersion = version ?? '2.1.0';
-    this.folder = folder ?? 'assets/rive';
-    this.wasmPath = wasmPath ?? `https://unpkg.com/@rive-app/canvas-advanced@${riveVersion}/rive.wasm`;
-  }
+  public rive?: Rive;
+  public frame$?: Observable<number>;
+  public frame?: Signal<number>;
 
   private async getRive() {
     if (!this.rive) {
       const locateFile = () => this.wasmPath;
       this.rive = await RiveBuilder({ locateFile });
-      this.frame = animationFrame(this.rive).pipe(share());
+      this.frame$ = animationFrame(this.rive).pipe(share());
+      this.frame = toSignal(this.frame$, { initialValue: 0 });
     }
     return this.rive;
   }

@@ -1,9 +1,10 @@
-import { Directive, Input, NgZone } from '@angular/core';
+import { Directive, Input, inject } from '@angular/core';
 import { RiveCanvas } from '../canvas';
 import { TransformComponent } from '@rive-app/canvas-advanced';
 
 @Directive()
 export abstract class RiveTransformComponent<T extends TransformComponent> {
+  protected canvas = inject(RiveCanvas);
   protected component?: T;
   protected state: Partial<T> = {};
 
@@ -39,20 +40,15 @@ export abstract class RiveTransformComponent<T extends TransformComponent> {
     }
   }
 
-  constructor(
-    private zone: NgZone,
-    protected canvas: RiveCanvas
-  ) {}
+  constructor() {}
 
   abstract getComponent(name: string): T | undefined;
 
   protected set(key: keyof T, value: number | string | null | undefined) {
-    this.zone.runOutsideAngular(() => {
-      const v = typeof value === 'string' ? parseFloat(value) : value;
-      if (typeof v === 'number') {
-        if (this.component) this.component[key] = v as any;
-        else this.state[key] = v as any;
-      }
-    });
+    const v = typeof value === 'string' ? parseFloat(value) : value;
+    if (typeof v === 'number') {
+      if (this.component) this.component[key] = v as any;
+      else this.state[key] = v as any;
+    }
   }
 }

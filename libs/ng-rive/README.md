@@ -67,10 +67,12 @@ import { RiveModule, RIVE_FOLDER } from 'ng-rive';
 export class MyModule { }
 ```
 
-4. Use in template : 
+4. Use in template :
 ```html
 <canvas riv="knight" width="500" height="500">
-  <riv-animation name="idle" play></riv-animation>
+  @if (playing()) {
+    <riv-animation name="idle" play></riv-animation>
+  }
 </canvas>
 ```
 

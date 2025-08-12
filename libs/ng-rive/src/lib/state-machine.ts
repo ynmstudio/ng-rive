@@ -1,17 +1,19 @@
 import {
   EventEmitter,
   Directive,
-  NgZone,
   OnDestroy,
   Output,
   Input,
   ContentChildren,
   QueryList,
-  Inject, forwardRef
+  Inject, forwardRef,
+  inject,
+  signal
 } from '@angular/core';
 import { Artboard, SMIInput, StateMachine, StateMachineInstance } from '@rive-app/canvas-advanced';
-import { BehaviorSubject, of, Subscription } from 'rxjs';
+import { of, Subscription } from 'rxjs';
 import { filter, map, switchMap } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { RiveCanvas } from './canvas';
 import { RiveService } from './service';
 
@@ -140,10 +142,12 @@ function exist<T>(v: T | undefined | null): v is T {
     standalone: true
 })
 export class RiveStateMachine implements OnDestroy {
+  private canvas = inject(RiveCanvas);
+  private service = inject(RiveService);
   private sub?: Subscription;
   /** @internal: public only for RiveInput */
   public instance?: StateMachineInstance;
-  public state = new BehaviorSubject<StateMachineState>({ speed: 1, playing: false });
+  public state = signal<StateMachineState>({ speed: 1, playing: false });
 
   public inputs: Record<string, SMIInput> = {};
   @ContentChildren(RiveSMInput) private riveInputs?: QueryList<RiveSMInput>;
@@ -154,18 +158,14 @@ export class RiveStateMachine implements OnDestroy {
   @Input()
   set name(name: string | undefined | null) {
     if (typeof name !== 'string') return;
-    this.zone.runOutsideAngular(() => {
-      this.register(name);
-    });
+    this.register(name);
   }
 
   @Input()
   set index(value: number | string | undefined | null) {
     const index = typeof value === 'string' ? parseInt(value) : value;
     if (typeof index !== 'number') return;
-    this.zone.runOutsideAngular(() => {
-      this.register(index);
-    });
+    this.register(index);
   }
 
   @Input()
@@ -174,7 +174,7 @@ export class RiveStateMachine implements OnDestroy {
     if (typeof speed === 'number') this.update({ speed });
   }
   get speed() {
-    return this.state.getValue().speed;
+    return this.state().speed;
   }
 
   @Input() set play(playing: boolean | '' | undefined | null) {
@@ -185,14 +185,10 @@ export class RiveStateMachine implements OnDestroy {
     }
   }
   get play() {
-    return this.state.getValue().playing;
+    return this.state().playing;
   }
 
-  constructor(
-    private zone: NgZone,
-    private canvas: RiveCanvas,
-    private service: RiveService,
-  ) {}
+  constructor() {}
 
   ngOnDestroy() {
     const name = this.instance?.name;
@@ -202,7 +198,7 @@ export class RiveStateMachine implements OnDestroy {
   }
 
   private update(state: Partial<StateMachineState>) {
-    this.state.next({...this.state.getValue(), ...state });
+    this.state.update(s => ({...s, ...state }));
   }
 
   private setInput(input: SMIInput) {
@@ -215,7 +211,7 @@ export class RiveStateMachine implements OnDestroy {
 
   private getFrame(state: StateMachineState) {
     if (state.playing && this.service.frame) {
-      return this.service.frame.pipe(map((time) => [state, time] as const));
+      return toObservable(this.service.frame).pipe(map((time) => [state, time] as const));
     } else {
       return of(null)
     }
@@ -245,7 +241,7 @@ export class RiveStateMachine implements OnDestroy {
     this.sub?.unsubscribe();
 
     // Update on frame change if playing
-    const onFrameChange = this.state.pipe(
+    const onFrameChange = toObservable(this.state).pipe(
       switchMap((state) => this.getFrame(state)),
       filter(exist),
       map(([state, time]) => (time / 1000) * state.speed)
