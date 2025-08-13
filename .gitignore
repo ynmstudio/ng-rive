@@ -45,3 +45,4 @@ storage.cors.json
 
 # Logs
 *.log
+.angular

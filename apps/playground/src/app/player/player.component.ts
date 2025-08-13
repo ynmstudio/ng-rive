@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { RivePlayer } from '../../../../../libs/ng-rive/src/lib/player';
-import { RiveCanvas } from '../../../../../libs/ng-rive/src/lib/canvas';
+import { RiveCanvas } from 'ng-rive';
 
 @Component({
     selector: 'ng-rive-player',

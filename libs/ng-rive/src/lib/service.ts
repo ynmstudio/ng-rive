@@ -1,61 +1,62 @@
-import RiveBuilder from '@rive-app/canvas-advanced';
-import { RiveCanvas as Rive } from '@rive-app/canvas-advanced';
-import { Inject, Injectable, Optional } from '@angular/core';
+import RiveBuilder, { RiveCanvas as Rive, File as RiveFile } from '@rive-app/canvas-advanced';
 import { HttpClient } from '@angular/common/http';
-import { animationFrame } from './frame';
-import { share } from 'rxjs/operators';
-import { RIVE_FOLDER, RIVE_VERSION, RIVE_WASM } from './tokens';
+import { inject, Injectable, Optional, Signal, signal } from '@angular/core';
 import { firstValueFrom, Observable } from 'rxjs';
+import { share } from 'rxjs/operators';
+import { animationFrame } from './frame';
+import { RIVE_FOLDER, RIVE_VERSION, RIVE_WASM } from './tokens';
 
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class RiveService {
-  private wasmPath: string;
-  private folder: string;
-  public rive?: Rive;
-  public frame?: Observable<number>;
+  private http = inject(HttpClient);
+  private folder = inject(RIVE_FOLDER, { optional: true }) ?? 'assets/rive';
+  private version = inject(RIVE_VERSION, { optional: true }) ?? '2.1.0';
+  private wasmPath =
+    inject(RIVE_WASM, { optional: true }) ??
+    `https://unpkg.com/@rive-app/canvas-advanced@${this.version}/rive.wasm`;
 
-  constructor(
-    private http: HttpClient,
-    @Optional() @Inject(RIVE_FOLDER) folder?: string,
-    @Optional() @Inject(RIVE_WASM) wasmPath?: string,
-    @Optional() @Inject(RIVE_VERSION) version?: string,
-  ) {
-    const riveVersion = version ?? '2.1.0';
-    this.folder = folder ?? 'assets/rive';
-    this.wasmPath = wasmPath ?? `https://unpkg.com/@rive-app/canvas-advanced@${riveVersion}/rive.wasm`;
+  private riveSignal = signal<Rive | null>(null);
+  private frameSignal = signal<Observable<number> | null>(null);
+
+  get rive(): Rive | null {
+    return this.riveSignal();
+  }
+
+  get frame(): Observable<number> | null {
+    return this.frameSignal();
   }
 
   private async getRive() {
-    if (!this.rive) {
+    if (!this.riveSignal()) {
       const locateFile = () => this.wasmPath;
-      this.rive = await RiveBuilder({ locateFile });
-      this.frame = animationFrame(this.rive).pipe(share());
+      const rive = await RiveBuilder({ locateFile });
+      this.riveSignal.set(rive);
+      this.frameSignal.set(animationFrame(rive).pipe(share()));
     }
-    return this.rive;
+    return this.riveSignal()!;
   }
 
   private getAsset(asset: string) {
-    return firstValueFrom(this.http.get(asset, { responseType: 'arraybuffer' }));
+    return firstValueFrom(
+      this.http.get(asset, { responseType: 'arraybuffer' })
+    );
   }
 
   /** Load a riv file */
-  async load(file: string | File | Blob) {
-    // Provide the file directly
+  async load(file: string | File | Blob): Promise<RiveFile> {
     if (typeof file !== 'string') {
-      const [ rive, buffer ] = await Promise.all([
+      const [rive, buffer] = await Promise.all([
         this.getRive(),
         file.arrayBuffer(),
       ]);
-      return rive?.load(new Uint8Array(buffer));
+      return rive.load(new Uint8Array(buffer));
     }
 
     const asset = `${this.folder}/${file}.riv`;
-    const [ rive, buffer ] = await Promise.all([
+    const [rive, buffer] = await Promise.all([
       this.getRive(),
       this.getAsset(asset),
     ]);
-    if (!rive) throw new Error('Could not load rive');
     return rive.load(new Uint8Array(buffer));
   }
-
 }

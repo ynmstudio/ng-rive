@@ -1,7 +1,7 @@
-import { Artboard, LinearAnimation, StateMachine } from '@rive-app/canvas-advanced';
+import { Artboard, LinearAnimation, StateMachine } from "@rive-app/canvas-advanced";
 
 export function toInt(value: number | string | undefined | null) {
-  const v = typeof value === 'string' ? parseInt(value, 10) : value;
+  const v = typeof value === 'string' ? parseInt(value) : value;
   if (typeof v !== 'number') return;
   return v;
 }
@@ -38,19 +38,26 @@ export function getStateMachines(artboard?: Artboard) {
   return stateMachines;
 }
 
+
 interface ClientCoordinates {
   clientX: number;
   clientY: number;
 }
 
 export function getClientCoordinates(event: MouseEvent | TouchEvent): ClientCoordinates {
-  if (["touchstart", "touchmove"].indexOf(event.type) > -1 && (event as TouchEvent).touches?.length) {
+  if (
+    ["touchstart", "touchmove"].indexOf(event.type) > -1 &&
+    (event as TouchEvent).touches?.length
+  ) {
     event.preventDefault();
     return {
       clientX: (event as TouchEvent).touches[0].clientX,
       clientY: (event as TouchEvent).touches[0].clientY,
     };
-  } else if (event.type === 'touchend' && (event as TouchEvent).changedTouches?.length) {
+  } else if (
+    event.type === "touchend" &&
+    (event as TouchEvent).changedTouches?.length
+  ) {
     return {
       clientX: (event as TouchEvent).changedTouches[0].clientX,
       clientY: (event as TouchEvent).changedTouches[0].clientY,
@@ -61,4 +68,4 @@ export function getClientCoordinates(event: MouseEvent | TouchEvent): ClientCoor
       clientY: (event as MouseEvent).clientY,
     };
   }
-}
+};

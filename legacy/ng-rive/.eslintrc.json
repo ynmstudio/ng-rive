@@ -4,12 +4,19 @@
   "overrides": [
     {
       "files": ["*.ts"],
+      "extends": [
+        "plugin:@nx/angular",
+        "plugin:@angular-eslint/template/process-inline-templates"
+      ],
       "rules": {
+        "@angular-eslint/no-input-rename": false,
+        "@angular-eslint/directive-class-suffix": false,
+        "@angular-eslint/no-output-native": false,
         "@angular-eslint/directive-selector": [
           "error",
           {
             "type": "attribute",
-            "prefix": "ngRive",
+            "prefix": "riv",
             "style": "camelCase"
           }
         ],
@@ -17,15 +24,11 @@
           "error",
           {
             "type": "element",
-            "prefix": "ng-rive",
+            "prefix": "riv",
             "style": "kebab-case"
           }
         ]
-      },
-      "extends": [
-        "plugin:@nx/angular",
-        "plugin:@angular-eslint/template/process-inline-templates"
-      ]
+      }
     },
     {
       "files": ["*.html"],

@@ -1,40 +1,31 @@
 {
   "name": "ng-rive",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "projectType": "library",
   "sourceRoot": "libs/ng-rive/src",
   "prefix": "ng-rive",
+  "tags": [],
+  "projectType": "library",
   "targets": {
-    "build": {
-      "executor": "@nx/angular:package",
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
       "options": {
-        "tsConfig": "libs/ng-rive/tsconfig.lib.json",
-        "project": "libs/ng-rive/ng-package.json"
+        "jestConfig": "libs/ng-rive/jest.config.ts",
+        "passWithNoTests": true
       },
       "configurations": {
-        "production": {
-          "tsConfig": "libs/ng-rive/tsconfig.lib.prod.json"
+        "ci": {
+          "ci": true,
+          "codeCoverage": true
         }
       }
     },
     "lint": {
       "executor": "@nx/linter:eslint",
+      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": [
-          "libs/ng-rive/src/**/*.ts",
-          "libs/ng-rive/src/**/*.html"
-        ]
-      },
-      "outputs": ["{options.outputFile}"]
-    },
-    "test": {
-      "executor": "@nx/jest:jest",
-      "outputs": ["{workspaceRoot}/coverage/libs/ng-rive"],
-      "options": {
-        "jestConfig": "libs/ng-rive/jest.config.ts",
-        "passWithNoTests": true
+        "lintFilePatterns": ["libs/ng-rive/**/*.ts", "libs/ng-rive/**/*.html"]
       }
     }
-  },
-  "tags": []
+  }
 }

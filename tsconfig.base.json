@@ -15,6 +15,7 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
+      "@ng-rive/ng-rive": ["libs/ng-rive/src/index.ts"],
       "ng-rive": ["libs/ng-rive/src/index.ts"]
     }
   },
