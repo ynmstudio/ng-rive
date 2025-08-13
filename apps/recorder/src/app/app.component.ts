@@ -5,7 +5,6 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { RiveCanvas } from 'ng-rive';
 import { Artboard } from '@rive-app/canvas-advanced';
 import { RivePlayer } from '../../../../libs/ng-rive/src/lib/player';
-import { RiveCanvas as RiveCanvas_1 } from '../../../../libs/ng-rive/src/lib/canvas';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -58,7 +57,7 @@ const extensions = {
         MatToolbarModule,
         MatButtonModule,
         MatIconModule,
-        RiveCanvas_1,
+        RiveCanvas,
         RivePlayer,
         forwardRef(() => VideoFormatPipe),
     ],

@@ -1,12 +1,4 @@
-export * from './lib/module';
-// export * from './lib/types';
+export { RiveCanvasDirective as RiveCanvas } from './lib/canvas.directive';
 export * from './lib/tokens';
-export * from './lib/canvas';
-export * from './lib/player';
-export * from './lib/state-machine';
-export * from './lib/animation';
+export * from './lib/frame';
 export * from './lib/service';
-export * from './lib/component/bone';
-export * from './lib/component/node';
-export * from './lib/component/root-bone';
-export * from './lib/component/transform-component';
